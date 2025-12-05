@@ -1,5 +1,6 @@
+// src/SignUp.jsx
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { signUp } from "@/lib/supabase";
 
 const SignUpForm = () => {
   const [formData, setFormData] = useState({
@@ -26,20 +28,36 @@ const SignUpForm = () => {
     password: "",
     address: "",
     phone: "",
-    country: "",
+    country: "Philippines",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
+    setSuccess("");
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Sign up attempt with:", formData);
+    try {
+      await signUp(formData.email, formData.password, formData.username);
+
+      setSuccess(
+        "Account created successfully! Please check your email to confirm your account."
+      );
+
+      // Auto-redirect after 3 seconds
+      setTimeout(() => {
+        navigate("/login");
+      }, 3000);
+    } catch (error) {
+      console.error("Sign up error:", error);
+      setError(error.message || "Failed to create account. Please try again.");
+    } finally {
       setIsLoading(false);
-      alert(`Account created for: ${formData.username}`);
-    }, 1000);
+    }
   };
 
   const handleChange = (e) => {
@@ -58,6 +76,7 @@ const SignUpForm = () => {
   };
 
   const countries = [
+    "Philippines",
     "United States",
     "Canada",
     "United Kingdom",
@@ -67,7 +86,6 @@ const SignUpForm = () => {
     "Japan",
     "India",
     "China",
-    "Philippines",
   ];
 
   return (
@@ -78,9 +96,21 @@ const SignUpForm = () => {
             Sign up
           </CardTitle>
           <CardDescription className="text-neutral-400">
-            Create your account.
+            Create your account
           </CardDescription>
         </CardHeader>
+
+        {error && (
+          <div className="mx-6 mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <p className="text-red-400 text-sm text-center">{error}</p>
+          </div>
+        )}
+
+        {success && (
+          <div className="mx-6 mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+            <p className="text-green-400 text-sm text-center">{success}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -137,8 +167,12 @@ const SignUpForm = () => {
                 value={formData.password}
                 onChange={handleChange}
                 required
+                minLength={6}
                 disabled={isLoading}
               />
+              <p className="text-xs text-neutral-400">
+                Password must be at least 6 characters long
+              </p>
             </div>
 
             {/* Address Field */}
@@ -224,12 +258,13 @@ const SignUpForm = () => {
             <div className="text-center">
               <span className="text-neutral-400 text-sm">
                 Already have an account?{" "}
-                <Link
-                  to="/login"
+                <button
+                  type="button"
                   className="font-medium text-neutral-300 hover:text-white hover:underline no-underline hover:underline"
+                  onClick={() => navigate("/login")}
                 >
                   Sign in
-                </Link>
+                </button>
               </span>
             </div>
           </CardFooter>

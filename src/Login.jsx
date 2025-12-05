@@ -1,5 +1,6 @@
+// src/Login.jsx
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { signIn } from "@/lib/supabase";
 
 // Import your image
 import desktopImage from "./assets/logo.png";
@@ -19,17 +21,40 @@ const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
+  // Update the handleSubmit function in Login.jsx
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Login attempt with:", { email, password });
+    try {
+      const { user } = await signIn(email, password);
+
+      console.log("Login successful, user data:", user);
+      console.log("Is admin?", user.is_admin);
+      console.log("User email:", user.email);
+
+      // Direct email check as fallback
+      const isAdmin = user.is_admin || email === "admin@gmail.com";
+
+      if (isAdmin) {
+        console.log("Redirecting to admin dashboard");
+        navigate("/admin");
+      } else {
+        console.log("Redirecting to user dashboard");
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setError(
+        error.message || "Failed to login. Please check your credentials."
+      );
+    } finally {
       setIsLoading(false);
-      alert(`Logged in as: ${email}`);
-    }, 1000);
+    }
   };
 
   return (
@@ -56,6 +81,12 @@ const LoginForm = () => {
               Enter your email below to login to your account
             </CardDescription>
           </CardHeader>
+
+          {error && (
+            <div className="mx-6 mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-red-400 text-sm text-center">{error}</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-6">
@@ -85,12 +116,15 @@ const LoginForm = () => {
                   >
                     Password
                   </Label>
-                  <a
-                    href="#"
+                  <button
+                    type="button"
                     className="text-sm text-neutral-400 hover:text-neutral-300 hover:underline no-underline"
+                    onClick={() =>
+                      alert("Please contact support to reset your password.")
+                    }
                   >
                     Forgot your password?
-                  </a>
+                  </button>
                 </div>
                 <Input
                   id="password"
@@ -126,12 +160,13 @@ const LoginForm = () => {
               <div className="w-full text-left">
                 <span className="text-neutral-400 text-sm">
                   You don't have an account?{" "}
-                  <Link
-                    to="/signup"
+                  <button
+                    type="button"
                     className="font-medium text-neutral-300 hover:text-white hover:underline no-underline hover:underline"
+                    onClick={() => navigate("/signup")}
                   >
                     Sign up
-                  </Link>
+                  </button>
                 </span>
               </div>
             </CardFooter>

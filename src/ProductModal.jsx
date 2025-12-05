@@ -1,66 +1,76 @@
-// ProductModal.jsx
+// src/ProductModal.jsx
 import React, { useState, useEffect } from "react";
-import "./AdminDashboard.css";
+import "./ProductModal.css";
 
 const ProductModal = ({
   isOpen,
   onClose,
   onSubmit,
   product,
-  categories,
-  brands,
-  sizeOptions,
+  categories = [],
+  brands = [],
+  sizeOptions = [],
+  uploading = false,
 }) => {
   const [formData, setFormData] = useState({
     name: "",
-    category: "",
-    brand: "",
+    description: "",
     price: "",
     stock: "",
+    category: "",
+    brand: "",
     sizes: [],
-    description: "",
     image: null,
-    imageFile: null,
+    imagePreview: "",
+    is_featured: false,
   });
 
-  // Initialize form when product prop changes
-  useEffect(() => {
-    if (product) {
-      setFormData({
-        name: product.name || "",
-        category: product.category || "",
-        brand: product.brand || "",
-        price: product.price || "",
-        stock: product.stock?.toString() || "",
-        sizes: product.sizes || [],
-        description: product.description || "",
-        image: null,
-        imageFile: null,
-      });
-    } else {
-      setFormData({
-        name: "",
-        category: "",
-        brand: "",
-        price: "",
-        stock: "",
-        sizes: [],
-        description: "",
-        image: null,
-        imageFile: null,
-      });
-    }
-  }, [product]);
-
+  // Handle input changes
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  const handleSizeToggle = (size) => {
+  // Handle image upload
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.match("image.*")) {
+        alert("Please select an image file (JPEG, PNG, etc.)");
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size should be less than 5MB");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData((prev) => ({
+          ...prev,
+          image: file,
+          imagePreview: reader.result,
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData((prev) => ({
+      ...prev,
+      image: null,
+      imagePreview: "",
+    }));
+  };
+
+  const handleSizeChange = (size) => {
     setFormData((prev) => {
       const newSizes = prev.sizes.includes(size)
         ? prev.sizes.filter((s) => s !== size)
@@ -69,58 +79,90 @@ const ProductModal = ({
     });
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert("Image size should be less than 5MB");
-        return;
-      }
-
-      // Validate file type
-      const validTypes = ["image/jpeg", "image/png", "image/webp"];
-      if (!validTypes.includes(file.type)) {
-        alert("Only JPG, PNG, and WebP images are allowed");
-        return;
-      }
-
-      // Create preview URL for the image
-      const imageUrl = URL.createObjectURL(file);
-      setFormData((prev) => ({
-        ...prev,
-        image: imageUrl,
-        imageFile: file,
-      }));
-    }
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Prepare data for submission
-    const productData = {
-      name: formData.name,
-      category: formData.category,
-      brand: formData.brand,
-      price: formData.price,
-      stock: formData.stock,
-      sizes: formData.sizes,
-      description: formData.description,
-      imageFile: formData.imageFile,
-    };
+    // Validate required fields
+    if (
+      !formData.name ||
+      !formData.price ||
+      !formData.category ||
+      !formData.brand
+    ) {
+      alert(
+        "Please fill in all required fields (Name, Price, Category, Brand)"
+      );
+      return;
+    }
 
-    onSubmit(productData);
+    // Validate price is positive
+    if (parseFloat(formData.price) <= 0) {
+      alert("Price must be greater than 0");
+      return;
+    }
+
+    // Create FormData object for file upload
+    const submitData = new FormData();
+    submitData.append("name", formData.name);
+    submitData.append("description", formData.description || "");
+    submitData.append("price", parseFloat(formData.price));
+    submitData.append("stock", parseInt(formData.stock) || 0);
+    submitData.append("category", formData.category);
+    submitData.append("brand", formData.brand);
+    submitData.append("is_featured", formData.is_featured);
+    submitData.append("sizes", JSON.stringify(formData.sizes));
+
+    if (formData.image) {
+      submitData.append("image", formData.image);
+    }
+
+    // If editing and no new image but had previous image
+    if (product && product.image_url && !formData.image) {
+      submitData.append("existing_image", product.image_url);
+    }
+
+    onSubmit(submitData);
   };
+
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name || "",
+        description: product.description || "",
+        price: product.price?.toString() || "",
+        stock: product.stock?.toString() || "",
+        category: product.categories?.name || product.category || "",
+        brand: product.brands?.name || product.brand || "",
+        sizes: product.sizes || [],
+        image: null,
+        imagePreview: product.image_url || "",
+        is_featured: product.featured || product.is_featured || false,
+      });
+    } else {
+      // Reset form for new product
+      setFormData({
+        name: "",
+        description: "",
+        price: "",
+        stock: "",
+        category: "",
+        brand: "",
+        sizes: [],
+        image: null,
+        imagePreview: "",
+        is_featured: false,
+      });
+    }
+  }, [product]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal">
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{product ? "Edit Product" : "Add New Product"}</h2>
-          <button className="close-btn" onClick={onClose}>
+          <button className="modal-close-btn" onClick={onClose}>
             ×
           </button>
         </div>
@@ -128,18 +170,35 @@ const ProductModal = ({
         <form onSubmit={handleSubmit} className="product-form">
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="productName">Product Name *</label>
+              <label htmlFor="name">Product Name *</label>
               <input
                 type="text"
-                id="productName"
+                id="name"
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                required
                 placeholder="Enter product name"
+                required
               />
             </div>
 
+            <div className="form-group">
+              <label htmlFor="price">Price (₱) *</label>
+              <input
+                type="number"
+                id="price"
+                name="price"
+                value={formData.price}
+                onChange={handleInputChange}
+                placeholder="0.00"
+                step="0.01"
+                min="0.01"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
             <div className="form-group">
               <label htmlFor="category">Category *</label>
               <select
@@ -149,17 +208,15 @@ const ProductModal = ({
                 onChange={handleInputChange}
                 required
               >
-                <option value="">Select category</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
+                <option value="">Select Category</option>
+                {categories.map((category, index) => (
+                  <option key={index} value={category}>
                     {category}
                   </option>
                 ))}
               </select>
             </div>
-          </div>
 
-          <div className="form-row">
             <div className="form-group">
               <label htmlFor="brand">Brand *</label>
               <select
@@ -169,55 +226,41 @@ const ProductModal = ({
                 onChange={handleInputChange}
                 required
               >
-                <option value="">Select brand</option>
-                {brands.map((brand) => (
-                  <option key={brand} value={brand}>
+                <option value="">Select Brand</option>
+                {brands.map((brand, index) => (
+                  <option key={index} value={brand}>
                     {brand}
                   </option>
                 ))}
               </select>
             </div>
-
-            <div className="form-group">
-              <label htmlFor="price">Price *</label>
-              <input
-                type="text"
-                id="price"
-                name="price"
-                value={formData.price}
-                onChange={handleInputChange}
-                required
-                placeholder="e.g., P150"
-              />
-            </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="stock">Stock *</label>
+              <label htmlFor="stock">Stock Quantity</label>
               <input
                 type="number"
                 id="stock"
                 name="stock"
                 value={formData.stock}
                 onChange={handleInputChange}
-                required
+                placeholder="0"
                 min="0"
-                placeholder="Enter stock quantity"
               />
             </div>
 
             <div className="form-group">
               <label>Available Sizes</label>
-              <div className="size-options">
-                {sizeOptions.map((size) => (
+              <div className="size-buttons">
+                {sizeOptions.map((size, index) => (
                   <button
-                    key={size}
+                    key={index}
                     type="button"
                     className={`size-btn ${
                       formData.sizes.includes(size) ? "selected" : ""
                     }`}
-                    onClick={() => handleSizeToggle(size)}
+                    onClick={() => handleSizeChange(size)}
                   >
                     {size}
                   </button>
@@ -233,63 +276,66 @@ const ProductModal = ({
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              rows="3"
               placeholder="Enter product description"
+              rows="3"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="image">Product Image *</label>
-            <div className="image-upload">
-              <input
-                type="file"
-                id="image"
-                accept="image/*"
-                onChange={handleImageChange}
-                required={!product} // Only required for new products
-              />
-              <label htmlFor="image" className="image-preview">
-                {formData.image ? (
-                  <>
-                    <img
-                      src={formData.image}
-                      alt="Preview"
-                      className="preview-image"
-                    />
-                    <div className="image-overlay">
-                      <span>Change Image</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="upload-placeholder">
-                    <svg
-                      width="48"
-                      height="48"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" />
-                      <line x1="16" y1="5" x2="22" y2="5" />
-                      <line x1="19" y1="2" x2="19" y2="8" />
-                      <circle cx="9" cy="9" r="2" />
-                      <path d="M21 15l-5-5L5 21" />
-                    </svg>
+            <label>Product Image</label>
+            <div className="image-upload-container">
+              {formData.imagePreview ? (
+                <div className="image-preview">
+                  <img src={formData.imagePreview} alt="Preview" />
+                  <button
+                    type="button"
+                    className="remove-image-btn"
+                    onClick={handleRemoveImage}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="upload-area">
+                  <input
+                    type="file"
+                    id="image-upload"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="file-input"
+                  />
+                  <label htmlFor="image-upload" className="upload-label">
+                    <div className="upload-icon">📁</div>
                     <span>Click to upload image</span>
-                    <small>Supports: JPG, PNG, WebP (Max: 5MB)</small>
-                  </div>
-                )}
-              </label>
+                    <small>JPEG, PNG up to 5MB</small>
+                  </label>
+                </div>
+              )}
             </div>
+          </div>
+
+          <div className="form-group checkbox-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                name="is_featured"
+                checked={formData.is_featured}
+                onChange={handleInputChange}
+              />
+              <span>Featured Product</span>
+            </label>
           </div>
 
           <div className="modal-actions">
             <button type="button" className="cancel-btn" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="submit-btn">
-              {product ? "Update Product" : "Add Product"}
+            <button type="submit" className="submit-btn" disabled={uploading}>
+              {uploading
+                ? "Uploading..."
+                : product
+                ? "Update Product"
+                : "Add Product"}
             </button>
           </div>
         </form>
