@@ -311,7 +311,6 @@ const Dashboard = () => {
       // Update cart count
       refreshCartCount();
 
-      alert(`Added ${selectedProduct.name} to cart!`);
       handleCloseProductModal();
     } catch (error) {
       console.error("Error adding to cart:", error);

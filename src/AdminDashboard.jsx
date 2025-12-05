@@ -31,6 +31,9 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -228,25 +231,37 @@ const AdminDashboard = () => {
       }
 
       handleCloseModal();
-      alert("Product saved successfully!");
     } catch (error) {
       console.error("Error saving product:", error);
-      alert("Failed to save product: " + error.message);
+      alert(`Failed to save product: ${error.message}`);
     } finally {
       setUploading(false);
     }
   };
 
-  const handleDeleteProduct = async (productId) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      try {
-        await deleteProduct(productId);
-        setProducts(products.filter((product) => product.id !== productId));
-        alert("Product deleted successfully!");
-      } catch (error) {
-        console.error("Error deleting product:", error);
-        alert("Failed to delete product");
-      }
+  const handleOpenDeleteModal = (productId) => {
+    setProductToDelete(productId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setProductToDelete(null);
+    setIsDeleting(false);
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!productToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      await deleteProduct(productToDelete);
+      setProducts(products.filter((product) => product.id !== productToDelete));
+      handleCloseDeleteModal();
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      alert("Failed to delete product");
+      setIsDeleting(false);
     }
   };
 
@@ -437,7 +452,7 @@ const AdminDashboard = () => {
                           </button>
                           <button
                             className="action-btn delete-btn"
-                            onClick={() => handleDeleteProduct(product.id)}
+                            onClick={() => handleOpenDeleteModal(product.id)}
                           >
                             Delete
                           </button>
@@ -538,7 +553,7 @@ const AdminDashboard = () => {
         )}
       </div>
 
-      {/* Wrap ProductModal with ErrorBoundary for safety */}
+      {/* Product Modal */}
       <ErrorBoundary>
         {isModalOpen && (
           <ProductModal
@@ -553,6 +568,47 @@ const AdminDashboard = () => {
           />
         )}
       </ErrorBoundary>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="modal-overlay">
+          <div
+            className="modal-content delete-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>Confirm Deletion</h2>
+              <button
+                className="modal-close-btn"
+                onClick={handleCloseDeleteModal}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="delete-modal-content">
+              <h3>Are you sure you want to delete this product?</h3>
+
+              <div className="delete-modal-actions">
+                <button
+                  className="cancel-delete-btn"
+                  onClick={handleCloseDeleteModal}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="confirm-delete-btn"
+                  onClick={handleDeleteProduct}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete Product"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
