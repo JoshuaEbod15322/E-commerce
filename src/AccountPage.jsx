@@ -103,7 +103,6 @@ const AccountPage = () => {
       setSaving(true);
       await updateUserProfile(currentUser.id, userData);
       setIsEditing(false);
-      alert("Profile updated successfully!");
     } catch (error) {
       console.error("Error saving profile:", error);
       alert("Failed to update profile");
